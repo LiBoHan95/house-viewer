@@ -55,6 +55,8 @@ body { font-family: "PingFang SC","Microsoft YaHei",sans-serif; overflow:hidden;
   position:sticky; top:0; background:rgba(0,0,0,.9);
 }
 #info-close { margin-left:auto; cursor:pointer; background:none; border:none; color:#fff; font-size:18px; }
+#btn-copy-all { cursor:pointer; background:rgba(240,192,64,.15); border:1px solid #f0c040; color:#f0c040; font-size:12px; padding:4px 10px; border-radius:6px; transition:all .2s; }
+#btn-copy-all:hover { background:rgba(240,192,64,.3); }
 #info-table { width:100%; border-collapse:collapse; color:#ddd; font-size:13px; }
 #info-table th { background:rgba(255,255,255,.08); padding:8px 12px; text-align:left; position:sticky; top:40px; }
 #info-table td { padding:7px 12px; border-bottom:1px solid rgba(255,255,255,.05); }
@@ -117,6 +119,7 @@ var _hmt = _hmt || [];
   <div id="info-header">
     <span id="info-title">📋 选择楼栋查看详情</span>
     <span id="info-count" style="color:#f0c040"></span>
+    <button id="btn-copy-all">📋 复制全部</button>
     <button id="info-close">✕</button>
   </div>
   <table id="info-table">
@@ -703,6 +706,30 @@ renderer.domElement.addEventListener('mousemove', (e) => {
 
 // ========== 信息面板关闭 ==========
 document.getElementById('info-close').addEventListener('click', clearSelection);
+
+// ========== 信息面板行点击复制 ==========
+document.getElementById('info-tbody').addEventListener('click', (e) => {
+  const tr = e.target.closest('tr');
+  if (!tr) return;
+  const cells = tr.querySelectorAll('td');
+  if (cells.length < 4) return;
+  const text = `编号: ${cells[0].textContent}, 133㎡: ${cells[1].textContent}, 87㎡: ${cells[2].textContent}, 60㎡: ${cells[3].textContent}`;
+  navigator.clipboard.writeText(text);
+});
+
+// ========== 复制全部 ==========
+document.getElementById('btn-copy-all').addEventListener('click', () => {
+  const rows = document.querySelectorAll('#info-tbody tr');
+  const lines = ['编号\t133㎡\t87㎡\t60㎡'];
+  rows.forEach(tr => {
+    const cells = tr.querySelectorAll('td');
+    if (cells.length >= 4) {
+      lines.push(`${cells[0].textContent}\t${cells[1].textContent}\t${cells[2].textContent}\t${cells[3].textContent}`);
+    }
+  });
+  if (lines.length === 1) return;
+  navigator.clipboard.writeText(lines.join('\n'));
+});
 
 // ========== 响应式 ==========
 window.addEventListener('resize', () => {
