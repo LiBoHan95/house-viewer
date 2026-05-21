@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>宋村回迁房源分配图</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: "PingFang SC","Microsoft YaHei",sans-serif; overflow:hidden; background:#1a1a2e; }
+
+#canvas-container { position:fixed; inset:0; }
+
+/* 顶部工具栏 */
+#toolbar {
+  position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:10;
+  display:flex; gap:10px; align-items:center;
+  background:rgba(0,0,0,.75); backdrop-filter:blur(10px);
+  border-radius:12px; padding:8px 16px;
+}
+#toolbar h1 { color:#fff; font-size:16px; font-weight:600; white-space:nowrap; margin-right:8px; }
+#search-input {
+  width:160px; padding:8px 12px; border:1px solid rgba(255,255,255,.2);
+  border-radius:8px; background:rgba(255,255,255,.1); color:#fff; font-size:14px; outline:none;
+}
+#search-input::placeholder { color:rgba(255,255,255,.4); }
+#search-input:focus { border-color:#f0c040; }
+
+#toolbar button {
+  padding:8px 14px; border:none; border-radius:8px; font-size:13px; cursor:pointer; font-weight:500;
+  transition:all .2s; white-space:nowrap;
+}
+
+/* 图例 */
+#legend {
+  position:fixed; top:120px; right:12px; z-index:10;
+  background:rgba(0,0,0,.75); backdrop-filter:blur(10px);
+  border-radius:10px; padding:12px 16px;
+}
+#legend .item { display:flex; align-items:center; gap:8px; margin:4px 0; color:#ccc; font-size:13px; }
+#legend .dot { width:12px; height:12px; border-radius:3px; flex-shrink:0; }
+
+/* 底部信息栏 */
+#info-panel {
+  position:fixed; bottom:0; left:0; right:0; z-index:10;
+  background:rgba(0,0,0,.85); backdrop-filter:blur(10px);
+  border-top:1px solid rgba(255,255,255,.1);
+  max-height:50vh; overflow-y:auto;
+  transition:transform .3s;
+  transform:translateY(100%);
+}
+#info-panel.visible { transform:translateY(0); }
+#info-header {
+  padding:10px 20px; display:flex; align-items:center; gap:16px;
+  color:#fff; font-size:14px; border-bottom:1px solid rgba(255,255,255,.1);
+  position:sticky; top:0; background:rgba(0,0,0,.9);
+}
+#info-close { margin-left:auto; cursor:pointer; background:none; border:none; color:#fff; font-size:18px; }
+#info-table { width:100%; border-collapse:collapse; color:#ddd; font-size:13px; }
+#info-table th { background:rgba(255,255,255,.08); padding:8px 12px; text-align:left; position:sticky; top:40px; }
+#info-table td { padding:7px 12px; border-bottom:1px solid rgba(255,255,255,.05); }
+#info-table tr:hover td { background:rgba(240,192,64,.1); }
+#info-table .highlight { color:#f0c040; font-weight:600; }
+
+/* 提示 */
+#tooltip {
+  position:fixed; pointer-events:none; z-index:20;
+  background:rgba(0,0,0,.85); color:#fff; font-size:12px;
+  padding:6px 10px; border-radius:6px; opacity:0; transition:opacity .15s;
+  white-space:nowrap;
+}
+
+/* 响应式 */
+@media (max-width:768px) {
+  #toolbar { flex-wrap:wrap; left:8px; right:8px; transform:none; padding:8px; }
+  #toolbar h1 { font-size:14px; }
+  #search-input { width:110px; font-size:12px; padding:6px 10px; }
+  #toolbar button { font-size:11px; padding:6px 10px; }
+  #legend { top:auto; bottom:60px; right:4px; padding:8px 10px; }
+  #legend .item { font-size:11px; margin:2px 0; }
+}
+</style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<div id="toolbar">
+  <h1>🏠 宋村回迁房源分配图</h1>
+  <input id="search-input" type="text" placeholder="输入户号搜索..." autocomplete="off">
+  <!-- <button id="btn-edit">✋ 编辑模式</button> -->
+  <!-- <button id="btn-export">📥 导出位置</button> -->
+  <!-- <span id="edit-hint" style="color:#888;font-size:11px;display:none;"></span> -->
+
+</div>
+
+<div id="legend">
+  <div class="item"><span class="dot" style="background:#4A90D9"></span>A区 12栋</div>
+  <div class="item"><span class="dot" style="background:#5C9E5A"></span>B区 13栋</div>
+  <div class="item"><span class="dot" style="background:#E8833A"></span>C区 12栋</div>
+  <div class="item"><span class="dot" style="background:#D94A4A"></span>南区 13栋</div>
+  <div class="item"><span class="dot" style="background:#8E6BBF"></span>北区 5栋</div>
+  <div class="item" style="margin-top:4px; font-size:11px; color:#888;">
+    🟡高亮=已选 &amp;nbsp; ⚪闪烁=配套 &amp;nbsp; 🟢点击闪烁楼=交叉筛选
+  </div>
+</div>
+
+<div id="info-panel">
+  <div id="info-header">
+    <span id="info-title">📋 选择楼栋查看详情</span>
+    <span id="info-count" style="color:#f0c040"></span>
+    <button id="info-close">✕</button>
+  </div>
+  <table id="info-table">
+    <thead><tr>
+      <th>编号</th><th>133㎡</th><th>87㎡</th><th>60㎡</th>
+    </tr></thead>
+    <tbody id="info-tbody"></tbody>
+  </table>
+</div>
+
+<div id="tooltip"></div>
+
+<script src="data.js"></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+const DATA = window.HOUSE_DATA;
+
+// ========== 常量 ==========
+const ZONE_COLORS = {
+  'A区': '#4A90D9', 'B区': '#5C9E5A', 'C区': '#E8833A',
+  '南区': '#D94A4A', '北区': '#8E6BBF'
+};
+const HIGHLIGHT_COLOR = '#f0c040';
+const PULSE_COLOR = '#ffffff';
+const GROUND_SIZE = 60;
+
+// ========== Three.js 初始化 ==========
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#1a1a2e');
+scene.fog = new THREE.Fog('#1a1a2e', 40, 100);
+
+const camera = new THREE.PerspectiveCamera(45, container.clientWidth/container.clientHeight, 1, 150);
+camera.position.set(0, 30, 25);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+// CSS2D 文字标签
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(container.clientWidth, container.clientHeight);
+labelRenderer.domElement.style.position = 'fixed';
+labelRenderer.domElement.style.top = '0';
+labelRenderer.domElement.style.pointerEvents = 'none';
+labelRenderer.domElement.style.zIndex = '5';
+container.appendChild(labelRenderer.domElement);
+
+// OrbitControls
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(0, 0, 0);
+controls.minDistance = 8;
+controls.maxDistance = 60;
+controls.update();
+
+
+
+// ====== 编辑模式功能已注释掉 ======
+
+// 光照
+const ambientLight = new THREE.AmbientLight('#ffffff', 1.2);
+scene.add(ambientLight);
+const sunLight = new THREE.DirectionalLight('#ffffff', 3);
+sunLight.position.set(20, 30, 10);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.set(2048, 2048);
+sunLight.shadow.camera.near = 0.5;
+sunLight.shadow.camera.far = 120;
+sunLight.shadow.camera.left = -40;
+sunLight.shadow.camera.right = 40;
+sunLight.shadow.camera.top = 40;
+sunLight.shadow.camera.bottom = -40;
+scene.add(sunLight);
+const fillLight = new THREE.DirectionalLight('#8899cc', 0.8);
+fillLight.position.set(-10, 10, -5);
+scene.add(fillLight);
+
+// ========== 地面 ==========
+const groundGeo = new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE);
+const groundMat = new THREE.MeshStandardMaterial({ color: '#2a3a2a', roughness: 0.9 });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// 尝试加载卫星底图
+const textureLoader = new THREE.TextureLoader();
+textureLoader.load('satellite.jpg',
+  (tex) => {
+    groundMat.map = tex;
+    groundMat.color.set('#ffffff');
+    groundMat.needsUpdate = true;
+    console.log('卫星底图已加载');
+  },
+  undefined,
+  () => console.log('未找到 satellite.jpg，使用纯色地面')
+);
+
+// 网格辅助线
+const gridHelper = new THREE.PolarGridHelper(GROUND_SIZE/2, 40, 30, 64, '#444444', '#333333');
+gridHelper.position.y = 0.01;
+scene.add(gridHelper);
+
+// ========== 楼栋模型 ==========
+const buildingMeshes = new Map(); // key -> THREE.Group
+const buildingData = new Map();   // key -> building info
+
+// 加载保存的位置
+let savedPositions = {};
+try {
+  savedPositions = JSON.parse(localStorage.getItem('house-building-positions') || '{}');
+} catch(e) {}
+
+function getBuildingPosition(key) {
+  if (savedPositions[key]) return savedPositions[key];
+  return DATA.positions[key] || { x:0, z:0, floors:14 };
+}
+
+function createBuildingMesh(building) {
+  const key = building.key;
+  const pos = getBuildingPosition(key);
+  const zone = building.zone;
+  const color = ZONE_COLORS[zone] || '#888888';
+  const floors = pos.floors || building.maxFloor || 14;
+  const height = Math.max(floors * 0.22, 0.5);
+  const w = building.units.length > 1 ? 2.0 : 1.2;
+  const d = 0.9;
+
+  const group = new THREE.Group();
+  group.position.set(pos.x, height/2, pos.z);
+  group.userData = {
+    buildingKey: key,
+    zone: zone,
+    building: building.building,
+    floors: floors,
+    count133: building.count133,
+    count87: building.count87,
+    count60: building.count60,
+    baseY: height/2,
+  };
+
+  // 主体
+  const bodyGeo = new THREE.BoxGeometry(w, height, d);
+  const bodyMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(color),
+    roughness: 0.35,
+    metalness: 0.1,
+  });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  body.position.y = 0;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  body.name = 'body';
+  group.add(body);
+
+  // 顶部装饰条
+  const topGeo = new THREE.BoxGeometry(w + 0.15, 0.15, d + 0.15);
+  const topMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(color).multiplyScalar(0.7),
+    roughness: 0.3,
+    metalness: 0.3,
+  });
+  const top = new THREE.Mesh(topGeo, topMat);
+  top.position.y = height/2 + 0.07;
+  top.castShadow = true;
+  top.name = 'top';
+  group.add(top);
+
+  // 标签
+  const labelDiv = document.createElement('div');
+  labelDiv.textContent = key.replace(/^(A区|B区|C区|南区|北区)/, '');
+  labelDiv.style.cssText = `
+    color:#fff; font-size:11px; font-weight:600; background:rgba(0,0,0,.7);
+    padding:2px 6px; border-radius:4px; pointer-events:none;
+  `;
+  const label = new CSS2DObject(labelDiv);
+  label.position.y = height + 0.8;
+  label.name = 'label';
+  group.add(label);
+
+  scene.add(group);
+  buildingMeshes.set(key, group);
+  buildingData.set(key, building);
+
+  return group;
+}
+
+// 创建所有楼栋
+DATA.buildings.forEach(b => createBuildingMesh(b));
+// 暴露到全局方便控制台调试
+window.__buildingMeshes = buildingMeshes;
+window.__buildingData = buildingData;
+console.log(`已创建 ${buildingMeshes.size} 栋楼`);
+
+// ========== 交互状态 ==========
+let selectedBuilding = null;   // 当前选中的楼栋 key
+let secondaryBuilding = null;  // 二次筛选的配套楼栋 key
+let pairedBuildings = [];      // 配套楼栋 key 列表
+let hoveredBuilding = null;
+const raycaster = new THREE.Raycaster();
+raycaster.far = 80;
+const mouse = new THREE.Vector2();
+
+const tooltip = document.getElementById('tooltip');
+
+function getBuildingFromIntersect(intersects) {
+  for (const intersect of intersects) {
+    let obj = intersect.object;
+    while (obj) {
+      if (obj.userData && obj.userData.buildingKey) return obj;
+      obj = obj.parent;
+    }
+  }
+  return null;
+}
+
+// ========== 高亮/动画 ==========
+const clock = new THREE.Clock();
+const pulseBuildings = new Set();
+
+function resetAllHighlights() {
+  buildingMeshes.forEach((group) => {
+    const body = group.getObjectByName('body');
+    if (body) {
+      body.material.emissive?.setHex(0x000000);
+      body.material.emissiveIntensity = 0;
+    }
+    const top = group.getObjectByName('top');
+    if (top) {
+      top.material.emissive?.setHex(0x000000);
+      top.material.emissiveIntensity = 0;
+    }
+  });
+  pulseBuildings.clear();
+}
+
+function highlightBuilding(key, color, intensity=0.6) {
+  const group = buildingMeshes.get(key);
+  if (!group) return;
+  const body = group.getObjectByName('body');
+  if (body) {
+    body.material.emissive = new THREE.Color(color);
+    body.material.emissiveIntensity = intensity;
+  }
+  const top = group.getObjectByName('top');
+  if (top) {
+    top.material.emissive = new THREE.Color(color);
+    top.material.emissiveIntensity = intensity;
+  }
+}
+
+function setPulse(key) {
+  pulseBuildings.add(key);
+}
+
+// ========== 业务逻辑 ==========
+function findPairedBuildings(buildingKey) {
+  // 该楼栋包含的编号（优先133，其次87+60）
+  const nums133 = DATA.building133[buildingKey] || [];
+  const nums87 = DATA.building87[buildingKey] || [];
+
+  const paired = new Map(); // dstKey -> { numbers, size133, size87 }
+
+  if (nums133.length > 0) {
+    // 这是133楼栋，找配套的87/60楼栋
+    for (const num of nums133) {
+      const info = DATA.indexByNumber[num];
+      if (!info) continue;
+      const addr87 = info['87'];
+      const addr60 = info['60'];
+      // 解析87地址得到楼栋key
+      for (const addr of [addr87, addr60]) {
+        const m = addr.match(/^(.+?\d+)-\d+-\d+$/);
+        if (m) {
+          const dstKey = m[1];
+          if (dstKey !== buildingKey) {
+            if (!paired.has(dstKey)) paired.set(dstKey, { numbers: new Set(), size133: false, size87: true });
+            paired.get(dstKey).numbers.add(parseInt(num));
+          }
+        }
+      }
+    }
+  } else if (nums87.length > 0) {
+    // 这是87/60楼栋，找配套的133楼栋
+    for (const num of nums87) {
+      const info = DATA.indexByNumber[num];
+      if (!info) continue;
+      const addr133 = info['133'];
+      const m = addr133.match(/^(.+?\d+)-\d+-\d+$/);
+      if (m) {
+        const dstKey = m[1];
+        if (!paired.has(dstKey)) paired.set(dstKey, { numbers: new Set(), size133: true, size87: false });
+        paired.get(dstKey).numbers.add(parseInt(num));
+      }
+    }
+  }
+
+  return paired;
+}
+
+function selectBuilding(key) {
+  resetAllHighlights();
+  selectedBuilding = key;
+  secondaryBuilding = null;
+  pairedBuildings = [];
+
+  const paired = findPairedBuildings(key);
+  pairedBuildings = Array.from(paired.keys());
+
+  // 高亮选中楼栋
+  highlightBuilding(key, HIGHLIGHT_COLOR, 0.7);
+
+  // 高亮+脉冲配套楼栋
+  for (const pk of pairedBuildings) {
+    highlightBuilding(pk, ZONE_COLORS[buildingData.get(pk)?.zone] || '#ffffff', 0.4);
+    setPulse(pk);
+  }
+
+  updateInfoPanel(key, paired);
+}
+
+function clearSelection() {
+  resetAllHighlights();
+  selectedBuilding = null;
+  secondaryBuilding = null;
+  pairedBuildings = [];
+  document.getElementById('info-panel').classList.remove('visible');
+}
+
+// ========== 信息面板 ==========
+function updateInfoPanel(srcKey, paired) {
+  const panel = document.getElementById('info-panel');
+  const title = document.getElementById('info-title');
+  const count = document.getElementById('info-count');
+  const tbody = document.getElementById('info-tbody');
+
+  const bld = buildingData.get(srcKey);
+  if (!bld) return;
+
+  // 收集所有涉及到的编号
+  const allNums = new Set();
+  for (const [pk, info] of paired) {
+    info.numbers.forEach(n => allNums.add(n));
+  }
+
+  const numList = Array.from(allNums).sort((a,b) => a-b);
+  const sizeType = bld.count133 > 0 ? '133㎡' : '87㎡+60㎡';
+  title.textContent = `📋 ${bld.zone}${bld.building}号楼 (${sizeType})`;
+  count.textContent = `匹配 ${numList.length} 户`;
+
+  tbody.innerHTML = '';
+  const show = numList.slice(0, 200); // 最多显示200条
+  for (const num of show) {
+    const info = DATA.indexByNumber[num];
+    if (!info) continue;
+    const tr = document.createElement('tr');
+    const addr133 = info['133'];
+    const addr87 = info['87'];
+    const addr60 = info['60'];
+
+    // 高亮与该楼栋相关的地址
+    const hl133 = addr133.startsWith(srcKey) || pairedBuildings.some(p => addr133.startsWith(p));
+    const hl87 = addr87.startsWith(srcKey) || pairedBuildings.some(p => addr87.startsWith(p));
+    const hl60 = addr60.startsWith(srcKey) || pairedBuildings.some(p => addr60.startsWith(p));
+
+    tr.innerHTML = `
+      <td>${num}</td>
+      <td class="${hl133 ? 'highlight' : ''}">${addr133}</td>
+      <td class="${hl87 ? 'highlight' : ''}">${addr87}</td>
+      <td class="${hl60 ? 'highlight' : ''}">${addr60}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  if (numList.length > 200) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="4" style="text-align:center;color:#888;">... 还有 ${numList.length-200} 条</td>`;
+    tbody.appendChild(tr);
+  }
+
+  panel.classList.add('visible');
+}
+
+// ========== 二次筛选（交叉筛选） ==========
+function getCrossReferenceNumbers(srcKey, secKey) {
+  const nums133 = DATA.building133[srcKey] || [];
+  const nums87 = DATA.building87[srcKey] || [];
+  const result = [];
+
+  if (nums133.length > 0) {
+    for (const num of nums133) {
+      const info = DATA.indexByNumber[num];
+      if (!info) continue;
+      if ((info['87'] && info['87'].startsWith(secKey)) ||
+          (info['60'] && info['60'].startsWith(secKey))) {
+        result.push(num);
+      }
+    }
+  } else if (nums87.length > 0) {
+    for (const num of nums87) {
+      const info = DATA.indexByNumber[num];
+      if (!info) continue;
+      if (info['133'] && info['133'].startsWith(secKey)) {
+        result.push(num);
+      }
+    }
+  }
+  return result;
+}
+
+function selectSecondaryBuilding(key) {
+  secondaryBuilding = key;
+  resetAllHighlights();
+
+  // 主选黄色高亮
+  highlightBuilding(selectedBuilding, HIGHLIGHT_COLOR, 0.7);
+  // 次选青色高亮（不闪烁）
+  highlightBuilding(key, '#4ecdc4', 0.7);
+
+  // 清除脉冲，只显示交叉筛选的两个楼栋
+  pulseBuildings.clear();
+
+  // 显示交叉筛选数据
+  const nums = getCrossReferenceNumbers(selectedBuilding, key);
+  updateInfoPanelCrossReference(selectedBuilding, key, nums);
+}
+
+function updateInfoPanelCrossReference(srcKey, secKey, nums) {
+  const panel = document.getElementById('info-panel');
+  const title = document.getElementById('info-title');
+  const count = document.getElementById('info-count');
+  const tbody = document.getElementById('info-tbody');
+
+  const bld1 = buildingData.get(srcKey);
+  const bld2 = buildingData.get(secKey);
+  if (!bld1 || !bld2) return;
+
+  title.textContent = `📋 ${bld1.zone}${bld1.building}号楼 × ${bld2.zone}${bld2.building}号楼 (交叉筛选)`;
+  count.textContent = `匹配 ${nums.length} 户`;
+
+  tbody.innerHTML = '';
+  const show = nums.slice(0, 200);
+  for (const num of show) {
+    const info = DATA.indexByNumber[num];
+    if (!info) continue;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${num}</td>
+      <td class="highlight">${info['133']}</td>
+      <td class="highlight">${info['87']}</td>
+      <td class="highlight">${info['60']}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  if (nums.length > 200) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="4" style="text-align:center;color:#888;">... 还有 ${nums.length-200} 条</td>`;
+    tbody.appendChild(tr);
+  }
+
+  panel.classList.add('visible');
+}
+
+// ========== 搜索 ==========
+document.getElementById('search-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const val = e.target.value.trim();
+    if (!val) return;
+    const num = parseInt(val);
+    if (isNaN(num) || !DATA.indexByNumber[num]) {
+      alert(`未找到编号 ${val}`);
+      return;
+    }
+    const info = DATA.indexByNumber[num];
+    const addr133 = info['133'];
+    const m = addr133.match(/^(.+?\d+)-\d+-\d+$/);
+    if (m) {
+      const key = m[1];
+      // 移动相机对准该楼栋
+      const group = buildingMeshes.get(key);
+      if (group) {
+        controls.target.copy(group.position);
+        camera.position.set(group.position.x + 8, group.position.y + 10, group.position.z + 8);
+        controls.update();
+      }
+      selectBuilding(key);
+    }
+  }
+});
+
+// ========== 点击交互 ==========
+renderer.domElement.addEventListener('click', (e) => {
+  if (e.target.closest('#toolbar') || e.target.closest('#legend') ||
+      e.target.closest('#info-panel') || e.target.closest('#tooltip')) return;
+
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const meshes = [];
+  buildingMeshes.forEach(g => meshes.push(g));
+  const intersects = raycaster.intersectObjects(meshes, true);
+
+  if (intersects.length === 0) {
+    clearSelection();
+    return;
+  }
+
+  const obj = getBuildingFromIntersect(intersects);
+  if (!obj) { clearSelection(); return; }
+
+  const key = obj.userData.buildingKey;
+
+  if (selectedBuilding && pairedBuildings.includes(key)) {
+    if (secondaryBuilding === key) {
+      // 再次点击已选配套楼栋 → 取消二次筛选
+      secondaryBuilding = null;
+      selectBuilding(selectedBuilding);
+    } else {
+      // 点击闪烁的配套楼栋 → 二次交叉筛选
+      selectSecondaryBuilding(key);
+    }
+  } else if (selectedBuilding === key) {
+    // 再次点击同一楼栋 → 取消
+    clearSelection();
+  } else {
+    // 新选择
+    selectBuilding(key);
+  }
+});
+
+// ========== 悬停 ==========
+renderer.domElement.addEventListener('mousemove', (e) => {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const meshes = [];
+  buildingMeshes.forEach(g => meshes.push(g));
+  const intersects = raycaster.intersectObjects(meshes, true);
+  const obj = getBuildingFromIntersect(intersects);
+
+  if (obj && obj.userData.buildingKey !== hoveredBuilding) {
+    hoveredBuilding = obj.userData.buildingKey;
+    const bld = buildingData.get(hoveredBuilding);
+    if (bld) {
+      const sizes = [];
+      if (bld.count133) sizes.push(`133㎡×${bld.count133}`);
+      if (bld.count87) sizes.push(`87㎡×${bld.count87}`);
+      if (bld.count60) sizes.push(`60㎡×${bld.count60}`);
+      tooltip.textContent = `${hoveredBuilding} | ${bld.maxFloor || '?'}层 | ${sizes.join(', ')}`;
+      tooltip.style.opacity = '1';
+      tooltip.style.left = (e.clientX + 15) + 'px';
+      tooltip.style.top = (e.clientY - 30) + 'px';
+    }
+  } else if (!obj) {
+    hoveredBuilding = null;
+    tooltip.style.opacity = '0';
+  }
+});
+
+// ====== 编辑模式 / 拖拽 / 重置区域 功能已注释掉 ======
+
+
+// ========== 信息面板关闭 ==========
+document.getElementById('info-close').addEventListener('click', clearSelection);
+
+// ========== 响应式 ==========
+window.addEventListener('resize', () => {
+  camera.aspect = container.clientWidth / container.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  labelRenderer.setSize(container.clientWidth, container.clientHeight);
+});
+
+// ========== 键盘快捷键 ==========
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    clearSelection();
+  }
+  if (e.key === 'f' && !e.ctrlKey && !e.metaKey) {
+    // 重置视角
+    controls.target.set(0, 0, 0);
+    camera.position.set(0, 30, 25);
+    controls.update();
+  }
+});
+
+// ========== 动画循环 ==========
+function animate() {
+  requestAnimationFrame(animate);
+
+  const time = clock.getElapsedTime();
+
+  // 脉冲动画
+  for (const key of pulseBuildings) {
+    const group = buildingMeshes.get(key);
+    if (!group) continue;
+    const body = group.getObjectByName('body');
+    if (body) {
+      const pulse = 0.3 + Math.sin(time * 3) * 0.25;
+      body.material.emissiveIntensity = pulse;
+    }
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+}
+
+animate();
+console.log('🏠 宋村回迁房源分配图已就绪');
+console.log('  - 点击楼栋查看匹配，再次点击闪烁楼栋交叉筛选');
+console.log('  - 搜索编号快速定位');
+console.log('  - 按 F 重置视角 | Esc 取消选择');
+</script>
+</body>
+</html>
