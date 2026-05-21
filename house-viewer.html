@@ -71,6 +71,15 @@ body { font-family: "PingFang SC","Microsoft YaHei",sans-serif; overflow:hidden;
   white-space:nowrap;
 }
 
+/* 复制成功提示 */
+#toast {
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:99;
+  background:rgba(0,0,0,.85); color:#f0c040; font-size:14px;
+  padding:10px 24px; border-radius:8px; pointer-events:none;
+  opacity:0; transition:opacity .25s;
+}
+#toast.show { opacity:1; }
+
 /* 响应式 */
 @media (max-width:768px) {
   #toolbar { flex-wrap:wrap; left:8px; right:8px; transform:none; padding:8px; }
@@ -131,6 +140,7 @@ var _hmt = _hmt || [];
 </div>
 
 <div id="tooltip"></div>
+<div id="toast"></div>
 
 <script src="data.js"></script>
 
@@ -707,6 +717,16 @@ renderer.domElement.addEventListener('mousemove', (e) => {
 // ========== 信息面板关闭 ==========
 document.getElementById('info-close').addEventListener('click', clearSelection);
 
+// ========== Toast 通知 ==========
+const toastEl = document.getElementById('toast');
+let toastTimer = null;
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1500);
+}
+
 // ========== 信息面板行点击复制 ==========
 document.getElementById('info-tbody').addEventListener('click', (e) => {
   const tr = e.target.closest('tr');
@@ -714,7 +734,7 @@ document.getElementById('info-tbody').addEventListener('click', (e) => {
   const cells = tr.querySelectorAll('td');
   if (cells.length < 4) return;
   const text = `编号: ${cells[0].textContent}, 133㎡: ${cells[1].textContent}, 87㎡: ${cells[2].textContent}, 60㎡: ${cells[3].textContent}`;
-  navigator.clipboard.writeText(text);
+  navigator.clipboard.writeText(text).then(() => showToast('已复制'));
 });
 
 // ========== 复制全部 ==========
@@ -728,7 +748,7 @@ document.getElementById('btn-copy-all').addEventListener('click', () => {
     }
   });
   if (lines.length === 1) return;
-  navigator.clipboard.writeText(lines.join('\n'));
+  navigator.clipboard.writeText(lines.join('\n')).then(() => showToast('已复制全部'));
 });
 
 // ========== 响应式 ==========
