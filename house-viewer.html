@@ -727,6 +727,30 @@ function showToast(msg) {
   toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1500);
 }
 
+// ========== 复制工具（兼容 HTTP 环境） ==========
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  // 降级方案：HTTP 或非安全上下文
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  ta.style.top = '-9999px';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    document.execCommand('copy');
+    return Promise.resolve();
+  } catch (e) {
+    return Promise.reject(e);
+  } finally {
+    document.body.removeChild(ta);
+  }
+}
+
 // ========== 信息面板行点击复制 ==========
 document.getElementById('info-tbody').addEventListener('click', (e) => {
   const tr = e.target.closest('tr');
@@ -734,7 +758,7 @@ document.getElementById('info-tbody').addEventListener('click', (e) => {
   const cells = tr.querySelectorAll('td');
   if (cells.length < 4) return;
   const text = `编号: ${cells[0].textContent}, 133㎡: ${cells[1].textContent}, 87㎡: ${cells[2].textContent}, 60㎡: ${cells[3].textContent}`;
-  navigator.clipboard.writeText(text).then(() => showToast('已复制'));
+  copyText(text).then(() => showToast('已复制'));
 });
 
 // ========== 复制全部 ==========
@@ -748,7 +772,7 @@ document.getElementById('btn-copy-all').addEventListener('click', () => {
     }
   });
   if (lines.length === 1) return;
-  navigator.clipboard.writeText(lines.join('\n')).then(() => showToast('已复制全部'));
+  copyText(lines.join('\n')).then(() => showToast('已复制全部'));
 });
 
 // ========== 响应式 ==========
