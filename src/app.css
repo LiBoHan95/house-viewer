@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+html,
+body {
+	height: 100%;
+	overflow: hidden;
+}
+
+body {
+	font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+	background: #1a1a2e;
+	color: #fff;
+}
