@@ -80,6 +80,18 @@ body { font-family: "PingFang SC","Microsoft YaHei",sans-serif; overflow:hidden;
 }
 #toast.show { opacity:1; }
 
+/* 查看匹配结果按钮 */
+#btn-view-results {
+  position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:15;
+  padding:14px 36px; border:none; border-radius:14px; font-size:16px; font-weight:600;
+  cursor:pointer; display:none;
+  background:linear-gradient(135deg,#f0c040,#e8a820); color:#1a1a2e;
+  box-shadow:0 6px 24px rgba(240,192,64,.35);
+  transition:all .25s; white-space:nowrap;
+  letter-spacing:0.5px;
+}
+#btn-view-results:active { transform:translateX(-50%) scale(0.95); }
+
 /* 响应式 */
 @media (max-width:768px) {
   #toolbar { flex-wrap:wrap; left:8px; right:8px; transform:none; padding:8px; }
@@ -141,6 +153,7 @@ var _hmt = _hmt || [];
 
 <div id="tooltip"></div>
 <div id="toast"></div>
+<button id="btn-view-results">📋 查看匹配结果 (<span id="btn-match-count">0</span>户)</button>
 
 <script src="data.js"></script>
 
@@ -451,6 +464,7 @@ function findPairedBuildings(buildingKey) {
 
 function selectBuilding(key) {
   resetAllHighlights();
+  document.getElementById('info-panel').classList.remove('visible');
   selectedBuilding = key;
   secondaryBuilding = null;
   pairedBuildings = [];
@@ -467,7 +481,14 @@ function selectBuilding(key) {
     setPulse(pk);
   }
 
-  updateInfoPanel(key, paired);
+  // 存储待查看数据，显示按钮
+  window.__pendingPanel = function() { updateInfoPanel(key, paired); };
+  const totalNums = new Set();
+  for (const [, info] of paired) {
+    info.numbers.forEach(function(n) { totalNums.add(n); });
+  }
+  document.getElementById('btn-match-count').textContent = totalNums.size;
+  document.getElementById('btn-view-results').style.display = 'block';
 }
 
 function clearSelection() {
@@ -475,7 +496,9 @@ function clearSelection() {
   selectedBuilding = null;
   secondaryBuilding = null;
   pairedBuildings = [];
+  window.__pendingPanel = null;
   document.getElementById('info-panel').classList.remove('visible');
+  document.getElementById('btn-view-results').style.display = 'none';
 }
 
 // ========== 信息面板 ==========
@@ -562,6 +585,7 @@ function getCrossReferenceNumbers(srcKey, secKey) {
 function selectSecondaryBuilding(key) {
   secondaryBuilding = key;
   resetAllHighlights();
+  document.getElementById('info-panel').classList.remove('visible');
 
   // 主选黄色高亮
   highlightBuilding(selectedBuilding, HIGHLIGHT_COLOR, 0.7);
@@ -571,9 +595,11 @@ function selectSecondaryBuilding(key) {
   // 清除脉冲，只显示交叉筛选的两个楼栋
   pulseBuildings.clear();
 
-  // 显示交叉筛选数据
+  // 存储交叉筛选数据，显示按钮
   const nums = getCrossReferenceNumbers(selectedBuilding, key);
-  updateInfoPanelCrossReference(selectedBuilding, key, nums);
+  window.__pendingPanel = function() { updateInfoPanelCrossReference(selectedBuilding, key, nums); };
+  document.getElementById('btn-match-count').textContent = nums.length;
+  document.getElementById('btn-view-results').style.display = 'block';
 }
 
 function updateInfoPanelCrossReference(srcKey, secKey, nums) {
@@ -761,6 +787,12 @@ document.getElementById('info-tbody').addEventListener('click', (e) => {
   copyText(text).then(() => showToast('已复制'));
 });
 
+// ========== 查看匹配结果按钮 ==========
+document.getElementById('btn-view-results').addEventListener('click', function() {
+  if (window.__pendingPanel) window.__pendingPanel();
+  document.getElementById('btn-view-results').style.display = 'none';
+});
+
 // ========== 复制全部 ==========
 document.getElementById('btn-copy-all').addEventListener('click', () => {
   const rows = document.querySelectorAll('#info-tbody tr');
@@ -808,8 +840,12 @@ function animate() {
     if (!group) continue;
     const body = group.getObjectByName('body');
     if (body) {
-      const pulse = 0.3 + Math.sin(time * 3) * 0.25;
+      const pulse = 0.1 + Math.sin(time * 4) * 0.9;
       body.material.emissiveIntensity = pulse;
+    }
+    const top = group.getObjectByName('top');
+    if (top) {
+      top.material.emissiveIntensity = 0.3 + Math.sin(time * 4) * 0.7;
     }
   }
 
