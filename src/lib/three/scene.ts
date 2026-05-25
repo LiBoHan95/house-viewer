@@ -278,7 +278,6 @@ export class SceneManager {
 	private onClick = (e: MouseEvent) => {
 		if (
 			(e.target as HTMLElement).closest('#toolbar') ||
-			(e.target as HTMLElement).closest('#legend') ||
 			(e.target as HTMLElement).closest('#info-panel') ||
 			(e.target as HTMLElement).closest('#tooltip')
 		) return;

@@ -2,7 +2,6 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import Toolbar from '$lib/components/Toolbar.svelte';
-	import Legend from '$lib/components/Legend.svelte';
 	import InfoPanel from '$lib/components/InfoPanel.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import ViewResultsButton from '$lib/components/ViewResultsButton.svelte';
@@ -25,7 +24,6 @@
 <div bind:this={container} class="fixed inset-0"></div>
 
 <Toolbar />
-<Legend />
 <InfoPanel />
 <Toast />
 <ViewResultsButton />
