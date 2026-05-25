@@ -3,7 +3,16 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		%sveltekit.head%
+		<script>
+		var _hmt = _hmt || [];
+		(function() {
+			var hm = document.createElement("script");
+			hm.src = "https://hm.baidu.com/hm.js?0f559e496aec6a09c609fedfc7fcc6be";
+			var s = document.getElementsByTagName("script")[0];
+			s.parentNode.insertBefore(hm, s);
+		})();
+	</script>
+			%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<script src="/data.js"></script>

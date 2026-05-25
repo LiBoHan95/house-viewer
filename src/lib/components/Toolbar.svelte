@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { buildingState, selectBuilding, focusBuilding, searchByNumber, clearSelection } from '$lib/stores/buildingStore.svelte';
+	import { toast } from '$lib/utils/toast.svelte';
 
 	let searchValue = $state('');
 
@@ -9,7 +10,7 @@
 		if (!val) return;
 		const key = searchByNumber(val);
 		if (!key) {
-			alert(`未找到编号 ${val}`);
+			toast.show(`未找到编号 ${val}`);
 			return;
 		}
 		selectBuilding(key);

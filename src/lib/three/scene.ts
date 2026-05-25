@@ -97,19 +97,6 @@ export class SceneManager {
 		ground.receiveShadow = true;
 		this.scene.add(ground);
 
-		// Satellite texture
-		const texLoader = new THREE.TextureLoader();
-		texLoader.load(
-			'/satellite.jpg',
-			(tex: THREE.Texture) => {
-				groundMat.map = tex;
-				groundMat.color.set('#ffffff');
-				groundMat.needsUpdate = true;
-			},
-			undefined,
-			() => { /* no satellite.jpg found */ }
-		);
-
 		// Grid
 		const gridHelper = new THREE.PolarGridHelper(groundSize / 2, 40, 30, 64, '#444444', '#333333');
 		gridHelper.position.y = 0.01;
@@ -381,12 +368,12 @@ export class SceneManager {
 				this.highlightBuilding(sel, HIGHLIGHT_COLOR, 0.7);
 				if (sec) {
 					this.highlightBuilding(sec, SECONDARY_COLOR, 0.7);
-				} else {
-					for (const pk of buildingState.pairedBuildings) {
-						const bld = this.buildingDataMap.get(pk);
-						const zoneColor = bld ? (ZONE_COLORS[bld.zone] || '#ffffff') : '#ffffff';
-						this.highlightBuilding(pk, zoneColor, 0.4);
-					}
+				}
+				for (const pk of buildingState.pairedBuildings) {
+					if (pk === sec) continue;
+					const bld = this.buildingDataMap.get(pk);
+					const zoneColor = bld ? (ZONE_COLORS[bld.zone] || '#ffffff') : '#ffffff';
+					this.highlightBuilding(pk, zoneColor, sec ? 0.2 : 0.4);
 				}
 			}
 		}
